@@ -156,7 +156,7 @@ public class OrderController extends BaseController {
         //同步调用线程池的submit方法
         //拥塞窗口为20的无界阻塞队列（同一时间内只处理20个请求，其他排队），从而实现队列化泄洪思想
         Future<Object> future = executorService.submit(() -> {
-            //加入库存流水init状态
+            //库存流水初始状态先入库，异步扣减库存消息需要以此判断是否扣减成功
             String stockLogId = itemService.initStockLog(itemId, amount);
 
             //再去完成对应的下单事务型消息机制

@@ -39,13 +39,13 @@ public class MqConsumer {
         consumer = new DefaultMQPushConsumer("stock_consumer_group");
         consumer.setNamesrvAddr(nameAddr);
         // 订阅topic的所有消息
-        consumer.subscribe(topicName, "*");
+        consumer.subscribe(topicName, "decreaseStore");
         // 注册消息监听器，实际处理消息（扣减库存）
         consumer.registerMessageListener(new MessageListenerConcurrently() {
             @Override
             public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
                 //实现库存真正到数据库内扣减的逻辑
-                Message msg = msgs.get(0);
+                Message msg = msgs.get(0); //获取单条消息
                 String jsonString = new String(msg.getBody());
                 Map<String, Object> map = JSON.parseObject(jsonString, Map.class);
                 Integer itemId = (Integer) map.get("itemId");

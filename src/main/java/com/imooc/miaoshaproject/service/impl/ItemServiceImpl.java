@@ -150,19 +150,14 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional
     public boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException {
-        //int affectedRow =  itemStockDOMapper.decreaseStock(itemId,amount);
         long result = redisTemplate.opsForValue()
                 .increment("promo_item_stock_" + itemId, amount.intValue() * -1);
-        if (result > 0) {
-            //更新库存成功
+        if (result > 0) {   //还有剩余库存，更新库存成功
             return true;
-        } else if (result == 0) {
-            //打上库存已售罄的标识
+        } else if (result == 0) {   //更新库存成功，但已售罄，则打上库存已售罄的标识
             redisTemplate.opsForValue().set("promo_item_stock_invalid_" + itemId, "true");
-            //更新库存成功
             return true;
-        } else {
-            //更新库存失败
+        } else {  //库存不足，更新库存失败，补回库存
             increaseStock(itemId, amount);
             return false;
         }
@@ -192,8 +187,8 @@ public class ItemServiceImpl implements ItemService {
         StockLogDO stockLogDO = new StockLogDO();
         stockLogDO.setItemId(itemId);
         stockLogDO.setAmount(amount);
-        stockLogDO.setStockLogId(UUID.randomUUID().toString().replace("-", ""));
-        stockLogDO.setStatus(1);
+        stockLogDO.setStockLogId(UUID.randomUUID().toString().replace("-", "")); //库存流水号（主键）
+        stockLogDO.setStatus(1);  //1：初始状态，2：扣减库存成功，3：扣减失败，下单回滚
 
         stockLogDOMapper.insertSelective(stockLogDO);
 

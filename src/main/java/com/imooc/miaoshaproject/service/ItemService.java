@@ -22,20 +22,24 @@ public interface ItemService {
     //item及promo model缓存模型
     ItemModel getItemByIdInCache(Integer id);
 
-    //库存扣减
-    boolean decreaseStock(Integer itemId,Integer amount)throws BusinessException;
-    //库存回补
-    boolean increaseStock(Integer itemId,Integer amount)throws BusinessException;
+    //redis扣减操作
+    boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException;
 
-    //异步更新库存
-    boolean asyncDecreaseStock(Integer itemId,Integer amount);
+    //库存回补
+    boolean increaseStock(Integer itemId, Integer amount) throws BusinessException;
+
+    /**
+     * 异步更新库存，请改用事务型消息异步更新库存
+     * {@link com.imooc.miaoshaproject.mq.MqProducer#transactionAsyncCreateOrder}
+     */
+    @Deprecated
+    boolean asyncDecreaseStock(Integer itemId, Integer amount);
 
     //商品销量增加
-    void increaseSales(Integer itemId,Integer amount)throws BusinessException;
+    void increaseSales(Integer itemId, Integer amount) throws BusinessException;
 
     //初始化库存流水
-    String initStockLog(Integer itemId,Integer amount);
-
+    String initStockLog(Integer itemId, Integer amount);
 
 
 }

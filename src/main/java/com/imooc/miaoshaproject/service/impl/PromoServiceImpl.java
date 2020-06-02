@@ -72,7 +72,7 @@ public class PromoServiceImpl implements PromoService {
         ItemModel itemModel = itemService.getItemById(promoDO.getItemId());
         // 将库存同步到redis内
         redisTemplate.opsForValue().set("promo_item_stock_" + itemModel.getId(), itemModel.getStock());
-        //将大闸的限制数字设到redis内
+        //将限流大闸的限制数量存入redis内，一般限流会比库存多出一部分，因为不一定所有抢到的人都会购买
         redisTemplate.opsForValue().set("promo_door_count_" + promoId, itemModel.getStock().intValue() * 5);
     }
 

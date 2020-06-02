@@ -54,6 +54,8 @@ public class MqProducer {
         // 初始化并启动带有事务机制的 mq producer
         transactionMQProducer = new TransactionMQProducer("transaction_producer_group");
         transactionMQProducer.setNamesrvAddr(nameAddr);
+        // 指定线程池
+//        transactionMQProducer.setExecutorService(threadPool);
         transactionMQProducer.start();
         // 事务机制处理监听器
         transactionMQProducer.setTransactionListener(new TransactionListener() {
@@ -79,7 +81,11 @@ public class MqProducer {
                 String stockLogId = (String) argsMap.get("stockLogId");
                 try {
                     orderService.createOrder(userId, itemId, promoId, amount, stockLogId);
-                } catch (BusinessException e) {  //下单逻辑抛出异常，设置订单对应的stockLog为回滚状态
+                }
+                //若下单逻辑抛出异常，设置订单对应的stockLog为回滚状态即可，其他已由事务回滚数据库
+                //若事务提交后应用挂了则消息为LocalTransactionState.UNKNOW状态会由broker定时回调以下的checkLocalTransaction方法进行检查
+                //告知客户失败，由客户自行处理，不建议采用重试策略避免客户等待重试【具体看业务场景】
+                catch (BusinessException e) {
                     e.printStackTrace();
                     StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
                     stockLogDO.setStatus(3);
@@ -91,11 +97,11 @@ public class MqProducer {
             }
 
             /**
-             * 定期回调该方法处理状态为LocalTransactionState.UNKNOW的事务型消息
+             * broker会定期回调该方法处理集群中状态为LocalTransactionState.UNKNOW的事务型消息
              *
              * 场景：
              * 当使用TransactionMQProducer.sendMessageInTransaction方法投递消息后
-             * 至到TransactionListener.executeLocalTransaction方法处理过程中发生断电等，
+             * 至到TransactionListener.executeLocalTransaction方法处理过程中发生宕机等，
              * 都会导致事务型消息状态为LocalTransactionState.UNKNOW
              *
              * @param msg 消息体
@@ -123,7 +129,7 @@ public class MqProducer {
     }
 
     /**
-     * 事务型下单消息
+     * 事务型消息：【下单】 + 【扣减】
      *
      * @param userId
      * @param itemId
@@ -147,7 +153,7 @@ public class MqProducer {
         argsMap.put("stockLogId", stockLogId);
 
         TransactionSendResult sendResult;
-        Message message = new Message(topicName, "increase",
+        Message message = new Message(topicName, "decreaseStore",
                 JSON.toJSON(bodyMap).toString().getBytes(StandardCharsets.UTF_8));
         try {
             // 使用带有事务机制的 mq producer投递消息，类似于二阶段提交（返回消息投递结果）
@@ -161,18 +167,17 @@ public class MqProducer {
     }
 
     /**
-     * 异步库存扣减消息
+     * 发送库存扣减消息，请改用事务型消息异步更新库存 {@link #transactionAsyncCreateOrder}
      *
-     * @param itemId
-     * @param amount
-     * @return 扣减库存成功与否
+     * @return 发送库存扣减消息成功与否
      */
+    @Deprecated
     public boolean asyncReduceStock(Integer itemId, Integer amount) {
         // 封装为json消息体
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("itemId", itemId);
         bodyMap.put("amount", amount);
-        Message message = new Message(topicName, "increase",
+        Message message = new Message(topicName, "decreaseStore",
                 JSON.toJSON(bodyMap).toString().getBytes(StandardCharsets.UTF_8));
         // 发送消息
         try {
